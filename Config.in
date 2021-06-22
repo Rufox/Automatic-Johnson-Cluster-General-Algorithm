@@ -1,0 +1,19 @@
+[GENERAL]
+
+shape = -2,4,2
+Enlace = 3
+altura = 1.5
+
+[CLUSTER]
+
+chemical_formula = Bi 7
+
+[SOFTWARE]
+software = gaussian
+
+core = 4
+memory = 4
+
+charge_multi = 0 1
+
+header = PBE1PBE/SDDAll scf=(maxcycle=512) opt=(cartesian,maxcycle=512)
