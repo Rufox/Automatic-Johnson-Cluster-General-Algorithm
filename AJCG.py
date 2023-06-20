@@ -4,16 +4,15 @@ import configparser
 import sys,os
 import itertools
 import math
-#import shutil
 
-##### ZONA DE MANEJO VARIALBES DE ENTRADA
+# This program have been tested with Python 3.8
+
+##### Setting vars
 def Var_init():
 	global enlace, altura, shape
 	global Eq_Global
 	global Big_variable, totalVertices,atomos_dados
 	Big_variable = {}
-	#enlace = 0.3
-	altura = 1
 	atomos_dados = 0
 def is_number(d,n):
 	is_number = True
@@ -22,7 +21,7 @@ def is_number(d,n):
 		# check for "nan" floats
 		is_number = num == num   # or use `math.isnan(num)`
 		if 'Pcent' in d and (num<0 or num>1):
-			print("Valor de ",d, " fuera de los limites [0,1]\n")
+			print("Value ",d, " out of bounds [0,1]\n")
 			exit(1)
 	except ValueError:
 		is_number = False
@@ -30,9 +29,10 @@ def is_number(d,n):
 		exit(1)
 	return is_number
 
+# This will read Config.in file and set variables
 def establecerVariablesDefault():
 	global enlace,altura,shape,Eq_Global,totalVertices,atomos_dados
-	print(Big_variable)
+	#print(Big_variable)
 
 	# Verificar datos de forma son correctos
 	shape = Big_variable["shape"].split(",")
@@ -44,13 +44,12 @@ def establecerVariablesDefault():
 	
 	#Ecuacion Global
 	tmp=[]
-	#atomos_dados=0
+	
 	data= Big_variable["chemical_formula"].split(' ')
-	data[:] = [x for x in data if x]   #elimina espacios vacios.
+	data[:] = [x for x in data if x]   #Delete void spaces.
 	for i in range(int(len(data)/2)):
 		tmp.append(data[i*2].split()*int(data[(i*2)+1]))
 		atomos_dados+=abs(int(data[(i*2)+1]))
-		#np.append(Eq_Global,data[i*2].split()*int(data[(i*2)+1]))
 	if(atomos_dados>totalVertices):
 		print("Error.\nNumber of atoms is larger than the possible positions\n",atomos_dados)
 		exit(1)
@@ -60,23 +59,19 @@ def establecerVariablesDefault():
 		tmp.append('X'*ghost)
 		tmp = list(itertools.chain(*tmp))
 	Eq_Global = np.array(tmp)
-	print("EQ",Eq_Global)
+	print("Chemical Equation: ",Eq_Global)
 
-	# Variables Opcionales
 	if "distances" in Big_variable.keys():
-		#is_number("distances",Big_variable["distances"])
 		enlace = Big_variable["distances"].split(",")
 		for distance_array in enlace:
 			is_number("Distance-"+distance_array, distance_array)
 		enlace = list(map(float, enlace))
-		#print ("OCURRION\n")
 	else:
 		print("Error\nNo \"distance\" parameter given\n")
 		exit(2)
 
 
 	if "height" in Big_variable.keys():
-		#is_number("height",Big_variable["height"])
 		altura = Big_variable["height"].split(",")
 		for height_array in altura:
 			is_number("Height-"+height_array, height_array)
@@ -91,6 +86,7 @@ def establecerVariablesDefault():
 	if(len(shape) != (len(altura)+1)):
 		print("Height parameter HAVE TO BE of lengh of Shape parameters - 1.\nShape lenght ({}) != Height lenght ({})".format(shape,altura))
 		exit(5)
+
 # Funcion simple lectura de archivo
 def leerArchivoParametros(configs):
 	config = configparser.ConfigParser()
@@ -102,98 +98,78 @@ def leerArchivoParametros(configs):
 			Big_variable[variable]=valor
 	establecerVariablesDefault()
 ###################################
-# Cambiar funcion para guardar puntos en array modo impresion automata.
-# agregar cambio de distancia en Z.
-# Para el metodo eclipsado simplemente dividir math.pi por el MISMO numero de lados
-# Intentar descubrir como especificar distancia de enlace, no enlace
-# revisasr si puntos obtenidos son en orden o no. Segun Chemcraft si.
+# To rotate a ring just divide math.pi by the number of sides -> angle of rotation
 def CreateRing(sides, bondsize=1, rotation=0, translation=None):
-	#print("bondsize es {} para el floor {}".format(bondsize,sides))
-	if sides<0:
+	if sides<0:					# Rotate ring 
 		sides=abs(sides)
 		rotation=1
 	one_segment = math.pi * 2 / sides
-	#print("el one_segment es {}".format(one_segment))
-	if(sides!=1 and sides!=2):
+	if(sides!=1 and sides!=2):	#Specials cases: (1) a simple point and (2) a line
 		radius = math.sin((math.pi-one_segment)/ 2)*bondsize / math.sin(one_segment)
-	#	print ("Radio da: {}".format(radius))
-	elif (sides==2):
+	elif (sides==2):			# line
 		radius=bondsize/2
-	else:
+	else:						#point
 		radius=0
 
 	if rotation!=0:
 		rotation = math.pi/sides
+	# Rotations and Translation operators
 	points = [
 		(math.sin(one_segment * i + rotation) * radius,
 		 math.cos(one_segment * i + rotation) * radius)
 		for i in range(sides)]
-	#print("antes de trasladar {}".format(points))
 	if translation:
 		points = [[sum(pair) for pair in zip(point, translation)]
 				  for point in points]
-	#print(points)
 	return points
 
 def Create3DPolygon(floors):
-#	global enlace
-	aux =0
-	flag=0
+	aux = 0
+	flag = 0
 	polygon=[]
-	#print("heigh es {}".format(altura))
-	#print ("Crear poligono, enlace es {}".format(enlace))
+	# Creation of each ring 
 	for F in floors:
-	#	print("Piso con {} puntos".format(F))
 		tmp=CreateRing(F,enlace[flag]) #(abs(F)-1)*
 		tmp.append(float(aux))
-		#print(altura[flag])
 		try:
 			aux+=altura[flag]
-		except IndexError as e:
+		except IndexError as e:	#Only last ring with error, search for ring+1 that doesn't exist
 			pass
 		flag+=1
-		#print(tmp)
-		#print("ESPECIFICO: ",tmp[0],"\nAltura",tmp[-1])
 		polygon.append(tmp)
-	#print("POLIGON VA ASI")
-	#print(polygon)
-	return polygon
+	return polygon 		#An array Ring1[[x1,y1],[x2,y2],z_ring1],Ring2[[x1,y1],z_ring2]...
 #PEMUTACIONES
 
+# Function will iterate all possible combinations of atoms in positions.
+# WARNING: users should know how many iteration can be, number can and will escalate exponentially with number of positions
 def GlobalPermutation():
 	permutation =[]
-	for p in multiset_permutations(Eq_Global):
+	for p in multiset_permutations(Eq_Global):	#uses sympy method
 		print(p)
 		permutation.append(p)
-		#break
 	return permutation
 
 ##########
-# IMPRESION
+# PRINTING OF DATA
 def escribirArchivoXYZ(name, title,atomicSymbols ,coordsList):
 	input = open(name+".xyz","a")
 	input.write(str(atomos_dados)+"\n")
 	input.write(title+"\n")
-	#print (coordsList)
-	#print(shape)
 	posicion=0
 	for puntos in range(len(shape)):#range(totalVertices):
 		for depto in range(abs(shape[puntos])):
 			input.write(atomicSymbols[posicion]+"\t"+str(coordsList[puntos][depto][0])+"\t"+str(coordsList[puntos][depto][1])+"\t"+str(coordsList[puntos][-1])+"\n")
 			posicion+=1			
 
+# Change or add any information for an Gaussian input in this method
 def escribirInputGaussian(name,number,atomicSymbols ,coordsList):
-	#coordsList = np.array([[row[0],row[1], row[2], row[3]] for row in origincoords])
 	input = open(name+str(number)+".com","w+")
 	
-	#print (var.Big_variable)
 	input.write("%NProc="+Big_variable["core"]+"\n")
 	input.write("%mem="+Big_variable["memory"]+"GB\n")
 	input.write("#"+Big_variable["header"]+"\n\n")
 	input.write("Automatic Input "+name+" "+str(number)+"\n\n")
 	input.write(Big_variable["charge_multi"]+"\n")
-	#for line in coordsList:
-	#	input.write(' '.join(map(str, line))+"\n")
 	posicion=0
 	for puntos in range(len(shape)):#range(totalVertices):
 		for depto in range(abs(shape[puntos])):
@@ -204,24 +180,22 @@ def escribirInputGaussian(name,number,atomicSymbols ,coordsList):
 
 #####################################################################
 #MAIN
-#os.remove("Recopilacion.xyz")
 Var_init()
 leerArchivoParametros(sys.argv[1])
 
+# Delete previous iterations
 try:
     os.remove("Results_Combinations.xyz")
 except OSError:
     pass
 
-#print("Shape tiene lo siguiente:{} y height tiene {}".format(shape,altura))
+# Create rings
 poly = Create3DPolygon(shape)
 
-#a = np.array([0, 1, 0, 2])
+# Poblate rings
 Permu = GlobalPermutation()
-#IMPRESION
-#print (poly)
 
-
+# Print information
 for resultado in range(len(Permu)):
 	escribirArchivoXYZ("Results_Combinations","Permu-"+str(resultado),Permu[resultado],poly)
 	escribirInputGaussian("Permut",resultado,Permu[resultado],poly)
@@ -232,6 +206,3 @@ except FileExistsError:
 	pass
 
 os.system('mv *com InputsGaussian/')  
-
-#shutil.copy('*com', 'InputsGaussian/')
-#FIN IMPRESION

@@ -8,11 +8,9 @@ height = 1.5,1.5,1.5
 
 chemical_formula = C 8
 [SOFTWARE]
-software = gaussian
 
+software = gaussian
 core = 4
 memory = 4
-
 charge_multi = 0 1
-
 header = PBE1PBE/SDDAll scf=(maxcycle=512) opt=(cartesian,maxcycle=512)
