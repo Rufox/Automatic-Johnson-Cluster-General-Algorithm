@@ -1,22 +1,18 @@
-# -*- coding: utf-8 -*-
 from sympy.utilities.iterables import multiset_permutations
 import numpy as np
 import configparser
 import sys,os
 import itertools
 import math
-import subprocess
-# FALTAN
-# ELiminar Prints incorrectos, agregar correctos.
-# mas opciones de permutacion.
-# Eliminar los ghost en la construccion de los archivos .com
+#import shutil
+
 ##### ZONA DE MANEJO VARIALBES DE ENTRADA
 def Var_init():
 	global enlace, altura, shape
 	global Eq_Global
 	global Big_variable, totalVertices,atomos_dados
 	Big_variable = {}
-	enlace = 0.3
+	#enlace = 0.3
 	altura = 1
 	atomos_dados = 0
 def is_number(d,n):
@@ -30,9 +26,10 @@ def is_number(d,n):
 			exit(1)
 	except ValueError:
 		is_number = False
-		print ("Informacion en archivo de variables incorrecta\n",d ,"=", n)
+		print ("Parameters in Config file are incorrect (number expected) {}={}".format(d,n))
 		exit(1)
 	return is_number
+
 def establecerVariablesDefault():
 	global enlace,altura,shape,Eq_Global,totalVertices,atomos_dados
 	print(Big_variable)
@@ -43,7 +40,7 @@ def establecerVariablesDefault():
 		is_number("Ring-"+ring,ring)
 	shape = list(map(int, shape))		#EN este punto los datos son correctos (no son letras)
 	totalVertices = sum(map(abs, shape))
-	print("TOtal de puntos:", totalVertices)
+	print("Total Amount of Vertices: ", totalVertices)
 	
 	#Ecuacion Global
 	tmp=[]
@@ -55,23 +52,45 @@ def establecerVariablesDefault():
 		atomos_dados+=abs(int(data[(i*2)+1]))
 		#np.append(Eq_Global,data[i*2].split()*int(data[(i*2)+1]))
 	if(atomos_dados>totalVertices):
-		print("Error, numero de atomos superior a numero de ubicaciones",atomos_dados)
+		print("Error.\nNumber of atoms is larger than the possible positions\n",atomos_dados)
 		exit(1)
 	else:
 		ghost = totalVertices-atomos_dados
-		print("Ageregando fantasmas",ghost)
+		print("Adding Ghosts Positions",ghost)
 		tmp.append('X'*ghost)
 		tmp = list(itertools.chain(*tmp))
 	Eq_Global = np.array(tmp)
 	print("EQ",Eq_Global)
 
 	# Variables Opcionales
-	if "enlace" in Big_variable.keys():
-		is_number("enlace",Big_variable["enlace"])
-		enlace = float(Big_variable["enlace"])
-	if "altura" in Big_variable.keys():
-		is_number("Altura",Big_variable["altura"])
-		altura = float(Big_variable["altura"])
+	if "distances" in Big_variable.keys():
+		#is_number("distances",Big_variable["distances"])
+		enlace = Big_variable["distances"].split(",")
+		for distance_array in enlace:
+			is_number("Distance-"+distance_array, distance_array)
+		enlace = list(map(float, enlace))
+		#print ("OCURRION\n")
+	else:
+		print("Error\nNo \"distance\" parameter given\n")
+		exit(2)
+
+
+	if "height" in Big_variable.keys():
+		#is_number("height",Big_variable["height"])
+		altura = Big_variable["height"].split(",")
+		for height_array in altura:
+			is_number("Height-"+height_array, height_array)
+		altura = list(map(float, altura))
+	else:
+		print("Error\nNo \"height\" parameter given\n")
+		exit(3)
+
+	if(len(shape) > len(enlace)):
+		print("Shape and Distances parameters HAVE TO BE of the same length.\nShape lenght ({}) != Distances lenght ({})".format(shape,enlace))
+		exit(4)
+	if(len(shape) != (len(altura)+1)):
+		print("Height parameter HAVE TO BE of lengh of Shape parameters - 1.\nShape lenght ({}) != Height lenght ({})".format(shape,altura))
+		exit(5)
 # Funcion simple lectura de archivo
 def leerArchivoParametros(configs):
 	config = configparser.ConfigParser()
@@ -89,44 +108,55 @@ def leerArchivoParametros(configs):
 # Intentar descubrir como especificar distancia de enlace, no enlace
 # revisasr si puntos obtenidos son en orden o no. Segun Chemcraft si.
 def CreateRing(sides, bondsize=1, rotation=0, translation=None):
+	#print("bondsize es {} para el floor {}".format(bondsize,sides))
 	if sides<0:
 		sides=abs(sides)
 		rotation=1
 	one_segment = math.pi * 2 / sides
-	#print(one_segment)
-	#print(bondsize)
-	if(sides!=1):
-	#	print("NO ES 0")
-		if(sides == 2):
-			radius = bondsize/2
-		else:
-			radius = math.sin((math.pi-one_segment)/ 2)*bondsize / math.sin(one_segment)
+	#print("el one_segment es {}".format(one_segment))
+	if(sides!=1 and sides!=2):
+		radius = math.sin((math.pi-one_segment)/ 2)*bondsize / math.sin(one_segment)
+	#	print ("Radio da: {}".format(radius))
+	elif (sides==2):
+		radius=bondsize/2
 	else:
 		radius=0
 
 	if rotation!=0:
 		rotation = math.pi/sides
-	#print("RADIO:",radius)
 	points = [
 		(math.sin(one_segment * i + rotation) * radius,
 		 math.cos(one_segment * i + rotation) * radius)
 		for i in range(sides)]
-
+	#print("antes de trasladar {}".format(points))
 	if translation:
 		points = [[sum(pair) for pair in zip(point, translation)]
 				  for point in points]
+	#print(points)
 	return points
 
-def Create3DPolygon(floors, height):
+def Create3DPolygon(floors):
+#	global enlace
 	aux =0
+	flag=0
 	polygon=[]
+	#print("heigh es {}".format(altura))
+	#print ("Crear poligono, enlace es {}".format(enlace))
 	for F in floors:
-		tmp=CreateRing(F,enlace) #(abs(F)-1)*
+	#	print("Piso con {} puntos".format(F))
+		tmp=CreateRing(F,enlace[flag]) #(abs(F)-1)*
 		tmp.append(float(aux))
-		aux+=height
+		#print(altura[flag])
+		try:
+			aux+=altura[flag]
+		except IndexError as e:
+			pass
+		flag+=1
 		#print(tmp)
 		#print("ESPECIFICO: ",tmp[0],"\nAltura",tmp[-1])
 		polygon.append(tmp)
+	#print("POLIGON VA ASI")
+	#print(polygon)
 	return polygon
 #PEMUTACIONES
 
@@ -142,20 +172,14 @@ def GlobalPermutation():
 # IMPRESION
 def escribirArchivoXYZ(name, title,atomicSymbols ,coordsList):
 	input = open(name+".xyz","a")
-	#individual = open(title+".xyz","w+")
 	input.write(str(atomos_dados)+"\n")
 	input.write(title+"\n")
-	#individual.write(str(atomos_dados)+"\n")
-	#individual.write(title+"\n")
 	#print (coordsList)
 	#print(shape)
 	posicion=0
 	for puntos in range(len(shape)):#range(totalVertices):
 		for depto in range(abs(shape[puntos])):
 			input.write(atomicSymbols[posicion]+"\t"+str(coordsList[puntos][depto][0])+"\t"+str(coordsList[puntos][depto][1])+"\t"+str(coordsList[puntos][-1])+"\n")
-			#if (atomicSymbols[posicion] != "X"):
-				#individual.write(atomicSymbols[posicion]+"\t"+str(coordsList[puntos][depto][0])+"\t"+str(coordsList[puntos][depto][1])+"\t"+str(coordsList[puntos][-1])+"\n")
-			#	continue
 			posicion+=1			
 
 def escribirInputGaussian(name,number,atomicSymbols ,coordsList):
@@ -173,25 +197,41 @@ def escribirInputGaussian(name,number,atomicSymbols ,coordsList):
 	posicion=0
 	for puntos in range(len(shape)):#range(totalVertices):
 		for depto in range(abs(shape[puntos])):
-			if (atomicSymbols[posicion] != "X"):
-				input.write(atomicSymbols[posicion]+"\t"+str(coordsList[puntos][depto][0])+"\t"+str(coordsList[puntos][depto][1])+"\t"+str(coordsList[puntos][-1])+"\n")
+			input.write(atomicSymbols[posicion]+"\t"+str(coordsList[puntos][depto][0])+"\t"+str(coordsList[puntos][depto][1])+"\t"+str(coordsList[puntos][-1])+"\n")
 			posicion+=1			
 	input.write("\n")       #Porque Gaussian es espcial
 	input.close()
+
+#####################################################################
 #MAIN
 #os.remove("Recopilacion.xyz")
 Var_init()
 leerArchivoParametros(sys.argv[1])
 
-poly = Create3DPolygon(shape,altura)
+try:
+    os.remove("Results_Combinations.xyz")
+except OSError:
+    pass
+
+#print("Shape tiene lo siguiente:{} y height tiene {}".format(shape,altura))
+poly = Create3DPolygon(shape)
 
 #a = np.array([0, 1, 0, 2])
 Permu = GlobalPermutation()
 #IMPRESION
-print (poly)
+#print (poly)
+
+
 for resultado in range(len(Permu)):
-	escribirArchivoXYZ("Recopilacion","Permu-"+str(resultado),Permu[resultado],poly)
+	escribirArchivoXYZ("Results_Combinations","Permu-"+str(resultado),Permu[resultado],poly)
 	escribirInputGaussian("Permut",resultado,Permu[resultado],poly)
 
+try:
+	os.mkdir("InputsGaussian")
+except FileExistsError:
+	pass
+
+os.system('mv *com InputsGaussian/')  
+
+#shutil.copy('*com', 'InputsGaussian/')
 #FIN IMPRESION
-#TEST RMSD por Kabsch 
