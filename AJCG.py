@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from sympy.utilities.iterables import multiset_permutations
 import numpy as np
 import configparser
